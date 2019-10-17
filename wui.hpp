@@ -12,6 +12,7 @@ processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
 // ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 #include <map>
 #include <string>
+#define NOMINMAX
 #include <windows.h>
 #include <commctrl.h>
 
@@ -84,20 +85,19 @@ namespace wui
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 		// Default constructor.
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		WindowTraits ( void )
-		{
-			this->IsChild = false;
-			this->IsTitled = false;
-			this->IsResizeble = false;
-			this->IsAlwaysOnTop = false;
-			this->HasSysMenu = false;
-			this->HasBorder = false;
-			this->HasHScrollBar = false;
-			this->HasVScrollBar = false;
-			this->CanBeMinimized = false;
-			this->CanBeMaximized = false;
-			this->CanAcceptFiles = false;
-		}
+		WindowTraits ( void ) :
+			IsChild(false),
+			IsTitled(false),
+			IsResizeble(false),
+			IsAlwaysOnTop(false),
+			IsToolWindow(false),
+			HasSysMenu(false),
+			HasBorder(false),
+			HasHScrollBar(false),
+			HasVScrollBar(false),
+			CanBeMinimized(false),
+			CanBeMaximized(false),
+			CanAcceptFiles(false){}
 		
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 		// Build window style.
@@ -106,15 +106,15 @@ namespace wui
 		{
 			auto Style = unsigned long(0);
 
-			if(this->IsChild == true) Style |= WS_CHILD;
-			if(this->IsTitled == true) Style |= WS_CAPTION;
-			if(this->IsResizeble == true) Style |= WS_SIZEBOX;
-			if(this->HasSysMenu == true) Style |= WS_SYSMENU;
-			if(this->HasBorder == true) Style |= WS_BORDER;
-			if(this->HasHScrollBar == true) Style |= WS_HSCROLL;
-			if(this->HasVScrollBar == true) Style |= WS_VSCROLL;
-			if(this->CanBeMinimized == true) Style |= WS_MINIMIZEBOX;
-			if(this->CanBeMaximized == true) Style |= WS_MAXIMIZEBOX;
+			if(this->IsChild) Style |= WS_CHILD;
+			if(this->IsTitled) Style |= WS_CAPTION;
+			if(this->IsResizeble) Style |= WS_SIZEBOX;
+			if(this->HasSysMenu) Style |= WS_SYSMENU;
+			if(this->HasBorder) Style |= WS_BORDER;
+			if(this->HasHScrollBar) Style |= WS_HSCROLL;
+			if(this->HasVScrollBar) Style |= WS_VSCROLL;
+			if(this->CanBeMinimized) Style |= WS_MINIMIZEBOX;
+			if(this->CanBeMaximized) Style |= WS_MAXIMIZEBOX;
 
 			return Style;
 		}
@@ -126,9 +126,9 @@ namespace wui
 		{
 			auto Style = unsigned long(0);
 
-			if(this->IsAlwaysOnTop == true) Style |= WS_EX_TOPMOST;
-			if(this->IsToolWindow == true) Style |= WS_EX_TOOLWINDOW;
-			if(this->CanAcceptFiles == true) Style |= WS_EX_ACCEPTFILES;
+			if(this->IsAlwaysOnTop) Style |= WS_EX_TOPMOST;
+			if(this->IsToolWindow) Style |= WS_EX_TOOLWINDOW;
+			if(this->CanAcceptFiles) Style |= WS_EX_ACCEPTFILES;
 
 			return Style;
 		}
@@ -294,6 +294,7 @@ namespace wui
 			{
 				auto Message = std::string("Control: ") + this->Name + std::string(" had no child named: ") + _Name + std::string("!");
 				MessageBox(NULL, Message.c_str(), "WUI", MB_ICONERROR | MB_OK);
+				return *this;
 			}
 		}
 
@@ -755,7 +756,7 @@ namespace wui
 	{
 		if(Bitmaps.count(_Name) != 0)
 		{
-			std::memcpy(Bitmaps[_Name].Data, _Data, Bitmaps[_Name].Width * Bitmaps[_Name].Height * Bitmaps[_Name].Depth);
+			std::memcpy(Bitmaps[_Name].Data, _Data, size_t(Bitmaps[_Name].Width) * size_t(Bitmaps[_Name].Height) * size_t(Bitmaps[_Name].Depth));
 		}
 
 		else
