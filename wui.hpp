@@ -24,6 +24,7 @@ namespace wui
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 	// Globals.
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+	bool IsInit = false;
 	WNDCLASSEX WindowClass;
 	HINSTANCE InstanceHandle;
 	struct Control;
@@ -102,7 +103,7 @@ namespace wui
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 		// Build window style.
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		auto buildStyle ( void ) const -> unsigned long 
+		auto buildStyle ( void ) const -> unsigned long
 		{
 			auto Style = unsigned long(0);
 
@@ -358,7 +359,7 @@ namespace wui
 		// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 		// Button family: Push button.
 		// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		auto newButton ( const std::string& _Name, const std::string _Text = "", const bool _IsVisible = true ) -> Control&
+		auto newButton ( const std::string& _Name, const std::string& _Text = "", const bool _IsVisible = true ) -> Control&
 		{
 			auto Style = unsigned long(0);
 
@@ -377,7 +378,7 @@ namespace wui
 		// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 		// Button family: Checkbox.
 		// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		auto newCheckBox ( const std::string& _Name, const std::string _Text = "", const bool _IsVisible = true ) -> Control&
+		auto newCheckBox ( const std::string& _Name, const std::string& _Text = "", const bool _IsVisible = true ) -> Control&
 		{
 			auto Style = unsigned long(0);
 
@@ -395,7 +396,7 @@ namespace wui
 		// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 		// Button family: Radio button.
 		// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		auto newRadioButton ( const std::string& _Name, const std::string _Text = "", const bool _IsVisible = true ) -> Control&
+		auto newRadioButton ( const std::string& _Name, const std::string& _Text = "", const bool _IsVisible = true ) -> Control&
 		{
 			auto Style = unsigned long(0);
 
@@ -413,7 +414,7 @@ namespace wui
 		// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 		// Button family: Groupbox.
 		// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		auto newGroupBox ( const std::string& _Name, const std::string _Text = "", const bool _IsVisible = true ) -> Control&
+		auto newGroupBox ( const std::string& _Name, const std::string& _Text = "", const bool _IsVisible = true ) -> Control&
 		{
 			auto Style = unsigned long(0);
 
@@ -431,7 +432,7 @@ namespace wui
 		// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 		// Edit family: Output box.
 		// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		auto newOutputBox ( const std::string& _Name, const std::string _Text = "", const AlignH _Aligment = AlignH::LEFT, const bool _IsVisible = true ) -> Control&
+		auto newOutputBox ( const std::string& _Name, const std::string& _Text = "", const AlignH _Aligment = AlignH::LEFT, const bool _IsVisible = true ) -> Control&
 		{
 			auto Style = unsigned long(0);
 
@@ -453,7 +454,7 @@ namespace wui
 		// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 		// Edit family: Input box.
 		// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		auto newInputBox ( const std::string& _Name, const std::string _Text = "", const AlignH _Aligment = AlignH::LEFT, const bool _IsVisible = true ) -> Control&
+		auto newInputBox ( const std::string& _Name, const std::string& _Text = "", const AlignH _Aligment = AlignH::LEFT, const bool _IsVisible = true ) -> Control&
 		{
 			auto Style = unsigned long(0);
 
@@ -474,7 +475,7 @@ namespace wui
 		// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 		// Static family: Static text.
 		// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		auto newText ( const std::string& _Name, const std::string _Text = "", const AlignH _Aligment = AlignH::LEFT, const bool _IsVisible = true ) -> Control&
+		auto newText ( const std::string& _Name, const std::string& _Text = "", const AlignH _Aligment = AlignH::LEFT, const bool _IsVisible = true ) -> Control&
 		{
 			auto Style = unsigned long(0);
 
@@ -500,6 +501,8 @@ namespace wui
 
 			Style |= WS_CHILD;
 			Style |= SS_BITMAP;
+			Style |= SS_REALSIZECONTROL;
+			
 
 			this->newControl(_Name, "STATIC", ControlType::IMAGE, Style);
 
@@ -565,7 +568,7 @@ namespace wui
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 		// Set control's position.
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		auto setPosition ( int _X, int _Y ) -> void
+		auto setPosition ( const int _X, const int _Y ) -> void
 		{
 			SetWindowPos(this->Handle, NULL, _X, _Y, 0 , 0, SWP_NOSIZE | SWP_NOREPOSITION);
 		}
@@ -573,15 +576,33 @@ namespace wui
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 		// Set control's dimensions.
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		auto setDimensions ( int _Width, int _Height ) -> void
+		auto setDimensions ( const int _Width, const int _Height ) -> void
 		{
-			SetWindowPos(this->Handle, NULL, 0, 0, _Width , _Height, SWP_NOMOVE | SWP_NOREPOSITION);
+			if(this->Type == ControlType::WINDOW)
+			{
+				auto Rect = RECT{0, 0, _Width, _Height};
+
+				AdjustWindowRectEx
+				(
+					&Rect,
+					(DWORD)GetWindowLong(this->Handle, GWL_STYLE),
+					GetMenu(this->Handle) != NULL,
+					(DWORD)GetWindowLong(this->Handle, GWL_EXSTYLE)
+				);
+
+				SetWindowPos(this->Handle, NULL, 0, 0, Rect.right - Rect.left, Rect.bottom - Rect.top, SWP_NOMOVE | SWP_NOREPOSITION);
+			}
+
+			else
+			{
+				SetWindowPos(this->Handle, NULL, 0, 0, _Width , _Height, SWP_NOMOVE | SWP_NOREPOSITION);
+			}
 		}
 
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 		// Place window in center of the screen.
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		auto placeAtScreenCenter ( int _Width, int _Height ) -> void
+		auto placeAtScreenCenter ( const int _Width, const int _Height ) -> void
 		{
 			auto PosX = (GetSystemMetrics(SM_CXSCREEN) / 2) - (_Width / 2);
 			auto PoxY = (GetSystemMetrics(SM_CYSCREEN) / 2) - (_Height / 2);
@@ -639,7 +660,7 @@ namespace wui
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 		// Generate event: Window closed.
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		auto close ( bool _AlreadyDestroyed = false ) -> void
+		auto close ( const bool _AlreadyDestroyed = false ) -> void
 		{
 			this->IsClosed = true;
 			if(!_AlreadyDestroyed) DestroyWindow(this->Handle);
@@ -650,11 +671,7 @@ namespace wui
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 		auto onClose ( void ) -> bool
 		{
-			if(this->IsClosed)
-			{
-				return true;
-			}
-
+			if(this->IsClosed) return true;
 			return false;
 		}
 
@@ -703,7 +720,7 @@ namespace wui
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 	// Create bitmap for use in controls. BGR 8bit per color. Channel remapping is done by user.
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	auto createBitmap ( std::string _Name, int _Width, int _Height ) -> void
+	auto createBitmap ( const std::string& _Name, const int _Width, const int _Height ) -> void
 	{
 		if(Bitmaps.count(_Name) == 0)
 		{
@@ -752,7 +769,7 @@ namespace wui
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 	// Update bitmap's data.
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	auto updateBitmap ( std::string _Name, void* _Data ) -> void
+	auto updateBitmap ( const std::string& _Name, const void* _Data ) -> void
 	{
 		if(Bitmaps.count(_Name) != 0)
 		{
@@ -769,12 +786,9 @@ namespace wui
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 	// Get bitmap's handle by name.
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	auto getBitmap ( std::string _Name) -> void*
+	auto getBitmap ( const std::string& _Name ) -> void*
 	{
-		if(Bitmaps.count(_Name) != 0)
-		{
-			return Bitmaps[_Name].Handle;
-		}
+		if(Bitmaps.count(_Name) != 0) return Bitmaps[_Name].Handle;
 
 		else
 		{
@@ -788,7 +802,7 @@ namespace wui
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 	// Delete bitmap.
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	auto killBitmap ( std::string _Name) -> void
+	auto killBitmap ( const std::string& _Name ) -> void
 	{
 		if(Bitmaps.count(_Name) != 0)
 		{
@@ -834,41 +848,45 @@ namespace wui
 	// ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 	auto init ( HINSTANCE _InstanceHandle = NULL ) -> void
 	{
-		// Get instance handle automatically.
-		if(_InstanceHandle == NULL)
+		if(!IsInit)
 		{
-			InstanceHandle = GetModuleHandle(NULL);
-		}
+			// Get instance handle automatically.
+			if(_InstanceHandle == NULL)
+			{
+				InstanceHandle = GetModuleHandle(NULL);
+			}
 
-		// Use provided instance handle.
-		else
-		{
-			InstanceHandle = _InstanceHandle;
-		}
+			// Use provided instance handle.
+			else
+			{
+				InstanceHandle = _InstanceHandle;
+			}
 		
+			// Create default window template.
+			WindowClass.cbSize = sizeof(WindowClass);
+			WindowClass.style = CS_HREDRAW | CS_VREDRAW;
+			WindowClass.lpfnWndProc = MsgHandler;
+			WindowClass.cbClsExtra = 0;
+			WindowClass.cbWndExtra = 0;
+			WindowClass.hInstance = InstanceHandle;
+			WindowClass.hIcon = LoadIcon(NULL, IDI_APPLICATION);
+			WindowClass.hCursor = LoadCursor(NULL, IDC_ARROW);
+			WindowClass.hbrBackground = HBRUSH(CTLCOLOR_DLG + int(1));
+			WindowClass.lpszMenuName = NULL;
+			WindowClass.lpszClassName = "WUI_WINDOW";
+			WindowClass.hIconSm = LoadIcon(NULL, IDI_APPLICATION);
 
-		// Create default window template.
-		WindowClass.cbSize = sizeof(WindowClass);
-		WindowClass.style = CS_HREDRAW | CS_VREDRAW;
-		WindowClass.lpfnWndProc = MsgHandler;
-		WindowClass.cbClsExtra = 0;
-		WindowClass.cbWndExtra = 0;
-		WindowClass.hInstance = InstanceHandle;
-		WindowClass.hIcon = LoadIcon(NULL, IDI_APPLICATION);
-		WindowClass.hCursor = LoadCursor(NULL, IDC_ARROW);
-		WindowClass.hbrBackground = HBRUSH(CTLCOLOR_DLG + int(1));
-		WindowClass.lpszMenuName = NULL;
-		WindowClass.lpszClassName = "WUI_WINDOW";
-		WindowClass.hIconSm = LoadIcon(NULL, IDI_APPLICATION);
+			RegisterClassEx(&WindowClass);
 
-		RegisterClassEx(&WindowClass);
+			// Load common controls.
+			INITCOMMONCONTROLSEX Flags;
+			Flags.dwSize = sizeof(Flags);
+			Flags.dwICC = ICC_STANDARD_CLASSES;
+			InitCommonControlsEx(&Flags);
 
-
-		// Load common controls.
-		INITCOMMONCONTROLSEX Flags;
-		Flags.dwSize = sizeof(Flags);
-		Flags.dwICC = ICC_STANDARD_CLASSES;
-		InitCommonControlsEx(&Flags);
+			// Set as initialised.
+			IsInit = true;
+		}
 	}
 
 	// ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
