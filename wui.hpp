@@ -11,6 +11,7 @@ processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
 // Imports.
 // ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 #include <map>
+#include <array>
 #include <string>
 #define NOMINMAX
 #include <windows.h>
@@ -22,6 +23,13 @@ processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
 namespace wui
 {
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+	// Version.
+	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+	constexpr auto VERSION_MAJOR = int(1);
+	constexpr auto VERSION_MINOR = int(1);
+	constexpr auto VERSION_PATCH = int(0);
+
+	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 	// Globals.
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 	bool IsInit = false;
@@ -29,6 +37,129 @@ namespace wui
 	HINSTANCE InstanceHandle;
 	struct Control;
 	std::map<HWND, Control*> Controls;
+
+	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+	// Bitmap entry.
+	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+	struct BitmapEntry
+	{
+		HBITMAP Handle;
+		void* Data;
+		int Width;
+		int Height;
+		int Depth;
+
+		BitmapEntry ( void ) : Handle(NULL), Data(NULL), Width(0), Height(0), Depth(0) {}
+	};
+
+	std::map<std::string, BitmapEntry> Bitmaps;
+
+	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+	// Create bitmap for use in controls. BGR 8bit per color. Channel remapping is done by user.
+	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+	auto createBitmap ( const std::string& _Name, const int _Width, const int _Height ) -> void
+	{
+		if(Bitmaps.count(_Name) == 0)
+		{
+			auto DeviceContext = CreateCompatibleDC(NULL);
+
+			auto BitmapInfo = BITMAPINFO();
+			ZeroMemory(&BitmapInfo.bmiHeader, sizeof(BITMAPINFOHEADER));
+
+			BitmapInfo.bmiHeader.biWidth = _Width;
+			BitmapInfo.bmiHeader.biHeight = -_Height; // Invert height to shift 0 to top left.
+			BitmapInfo.bmiHeader.biPlanes = 1; // Not channels.
+			BitmapInfo.bmiHeader.biBitCount = 24; // 3 Channel bitmap. BGR color layout.
+			BitmapInfo.bmiHeader.biSizeImage = 0;
+			BitmapInfo.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+			BitmapInfo.bmiHeader.biClrUsed = 0;
+			BitmapInfo.bmiHeader.biClrImportant = 0;
+
+			auto Entry = BitmapEntry();
+			Entry.Handle = CreateDIBSection(DeviceContext, &BitmapInfo, DIB_RGB_COLORS, &Entry.Data, NULL, 0);
+
+			DeleteDC(DeviceContext);
+
+			if(Entry.Handle != NULL)
+			{
+				Entry.Width = _Width;
+				Entry.Height = _Height;
+				Entry.Depth = 3;
+
+				Bitmaps[_Name] = Entry;
+			}
+			
+			else
+			{
+				auto Message = std::string("Failed to create bitmap: ") + _Name + std::string("! - CreateDIBSection() returned NULL.");
+				MessageBox(NULL, Message.c_str(), "WUI", MB_ICONERROR | MB_OK);
+			}
+		}
+
+		else
+		{
+			auto Message = std::string("Failed to create bitmap: ") + _Name + std::string("! - Name collision.");
+			MessageBox(NULL, Message.c_str(), "WUI", MB_ICONERROR | MB_OK);
+		}
+	}
+
+	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+	// Update bitmap's data.
+	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+	auto updateBitmap ( const std::string& _Bitmap, const void* _Data ) -> void
+	{
+		auto Bitmap = Bitmaps.find(_Bitmap);
+			
+		if(Bitmap != Bitmaps.end())
+		{
+			std::memcpy(Bitmap->second.Data, _Data, size_t(Bitmap->second.Width * Bitmap->second.Height * Bitmap->second.Depth));
+		}
+
+		else
+		{
+			auto Message = std::string("Failed to update bitmap: ") + _Bitmap + std::string("! - Name not found.");
+			MessageBox(NULL, Message.c_str(), "WUI", MB_ICONERROR | MB_OK);
+		}
+	}
+
+	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+	// Get bitmap's entry.
+	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+	auto getBitmap ( const std::string& _Bitmap ) -> BitmapEntry&
+	{
+		auto Bitmap = Bitmaps.find(_Bitmap);
+			
+		if(Bitmap != Bitmaps.end())
+		{
+			return Bitmap->second;
+		}
+
+		else
+		{
+			auto Message = std::string("Failed to get bitmap: ") + _Bitmap + std::string("! - Name not found.");
+			MessageBox(NULL, Message.c_str(), "WUI", MB_ICONERROR | MB_OK);
+		}
+	}
+
+	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+	// Delete bitmap.
+	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+	auto killBitmap ( const std::string& _Bitmap ) -> void
+	{
+		auto Bitmap = Bitmaps.find(_Bitmap);
+			
+		if(Bitmap != Bitmaps.end())
+		{
+			DeleteObject(Bitmap->second.Handle);
+			Bitmaps.erase(_Bitmap);
+		}
+
+		else
+		{
+			auto Message = std::string("Failed to kill bitmap: ") + _Bitmap + std::string("! - Name not found.");
+			MessageBox(NULL, Message.c_str(), "WUI", MB_ICONERROR | MB_OK);
+		}
+	}
 
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 	// Enum for control type.
@@ -600,6 +731,21 @@ namespace wui
 		}
 
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+		// Get control's dimensions.
+		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+		auto getDimensions ( void ) -> std::array<long,2>
+		{
+			auto Rect = RECT{};
+			GetWindowRect(this->Handle, &Rect);
+			
+			auto Dimensions = std::array<long,2>();
+			Dimensions[0] = Rect.right - Rect.left;
+			Dimensions[1] = Rect.bottom - Rect.top;
+
+			return Dimensions;
+		}
+
+		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 		// Place window in center of the screen.
 		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 		auto placeAtScreenCenter ( const int _Width, const int _Height ) -> void
@@ -696,126 +842,37 @@ namespace wui
 			
 			return false;
 		}
+
+		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+		// Capture window's client area.
+		// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+		auto captureClientArea ( const std::string& _Bitmap ) -> void
+		{
+			auto Bitmap = Bitmaps.find(_Bitmap);
+			
+			if(Bitmap != Bitmaps.end())
+			{
+				auto WndDims = this->getDimensions();
+				auto WndDC = GetDC(this->Handle);
+				auto CapDC = CreateCompatibleDC(WndDC);
+
+				SelectObject(CapDC, Bitmap->second.Handle);
+				BitBlt(CapDC, 0, 0, WndDims[0], WndDims[1], WndDC, 0, 0, SRCCOPY | CAPTUREBLT);
+
+				DeleteDC(CapDC);
+				ReleaseDC(this->Handle, WndDC);
+			}
+
+			else
+			{
+				auto Message = std::string("captureClientArea(): ") + _Bitmap + std::string(" not found!");
+				MessageBox(NULL, Message.c_str(), "WUI", MB_ICONERROR | MB_OK);
+			}
+		}
 	};
 
 	// Root window.
 	Control RootWnd;
-
-	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	// Bitmaps management.
-	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	struct BitmapEntry
-	{
-		HBITMAP Handle;
-		void* Data;
-		int Width;
-		int Height;
-		int Depth;
-
-		BitmapEntry ( void ) : Handle(NULL), Data(NULL), Width(0), Height(0), Depth(0) {}
-	};
-	
-	std::map<std::string, BitmapEntry> Bitmaps;
-
-	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	// Create bitmap for use in controls. BGR 8bit per color. Channel remapping is done by user.
-	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	auto createBitmap ( const std::string& _Name, const int _Width, const int _Height ) -> void
-	{
-		if(Bitmaps.count(_Name) == 0)
-		{
-			auto DeviceContext = CreateCompatibleDC(NULL);
-
-			auto BitmapInfo = BITMAPINFO();
-			ZeroMemory(&BitmapInfo.bmiHeader, sizeof(BITMAPINFOHEADER));
-
-			BitmapInfo.bmiHeader.biWidth = _Width;
-			BitmapInfo.bmiHeader.biHeight = -_Height; // Invert height to shift 0 to top left.
-			BitmapInfo.bmiHeader.biPlanes = 1; // Not channels.
-			BitmapInfo.bmiHeader.biBitCount = 24; // 3 Channel bitmap. BGR color layout.
-			BitmapInfo.bmiHeader.biSizeImage = 0;
-			BitmapInfo.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-			BitmapInfo.bmiHeader.biClrUsed = 0;
-			BitmapInfo.bmiHeader.biClrImportant = 0;
-
-			auto Entry = BitmapEntry();
-			Entry.Handle = CreateDIBSection(DeviceContext, &BitmapInfo, DIB_RGB_COLORS, &Entry.Data, NULL, 0);
-
-			DeleteDC(DeviceContext);
-
-			if(Entry.Handle != NULL)
-			{
-				Entry.Width = _Width;
-				Entry.Height = _Height;
-				Entry.Depth = 3;
-
-				Bitmaps[_Name] = Entry;
-			}
-			
-			else
-			{
-				auto Message = std::string("Failed to create bitmap: ") + _Name + std::string("! - CreateDIBSection() returned NULL.");
-				MessageBox(NULL, Message.c_str(), "WUI", MB_ICONERROR | MB_OK);
-			}
-		}
-
-		else
-		{
-			auto Message = std::string("Failed to create bitmap: ") + _Name + std::string("! - Name collision.");
-			MessageBox(NULL, Message.c_str(), "WUI", MB_ICONERROR | MB_OK);
-		}
-	}
-
-	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	// Update bitmap's data.
-	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	auto updateBitmap ( const std::string& _Name, const void* _Data ) -> void
-	{
-		if(Bitmaps.count(_Name) != 0)
-		{
-			std::memcpy(Bitmaps[_Name].Data, _Data, size_t(Bitmaps[_Name].Width) * size_t(Bitmaps[_Name].Height) * size_t(Bitmaps[_Name].Depth));
-		}
-
-		else
-		{
-			auto Message = std::string("Failed to update bitmap: ") + _Name + std::string("! - Name not found.");
-			MessageBox(NULL, Message.c_str(), "WUI", MB_ICONERROR | MB_OK);
-		}
-	}
-
-	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	// Get bitmap's handle by name.
-	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	auto getBitmap ( const std::string& _Name ) -> void*
-	{
-		if(Bitmaps.count(_Name) != 0) return Bitmaps[_Name].Handle;
-
-		else
-		{
-			auto Message = std::string("Failed to get bitmap: ") + _Name + std::string("! - Name not found.");
-			MessageBox(NULL, Message.c_str(), "WUI", MB_ICONERROR | MB_OK);
-
-			return NULL;
-		}
-	}
-
-	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	// Delete bitmap.
-	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	auto killBitmap ( const std::string& _Name ) -> void
-	{
-		if(Bitmaps.count(_Name) != 0)
-		{
-			DeleteObject(Bitmaps[_Name].Handle);
-			Bitmaps.erase(_Name);
-		}
-
-		else
-		{
-			auto Message = std::string("Failed to kill bitmap: ") + _Name + std::string("! - Name not found.");
-			MessageBox(NULL, Message.c_str(), "WUI", MB_ICONERROR | MB_OK);
-		}
-	}
 
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 	// Handle all windows messages.
